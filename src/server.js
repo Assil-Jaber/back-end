@@ -2,9 +2,16 @@ require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
+const { errorHandler } = require("./middleware/errorHandler");
 
+// Routes
 const authRoutes = require("./routes/auth");
 const userRoutes = require("./routes/users");
+const resumeRoutes = require("./routes/resumes");
+const jobRoutes = require("./routes/jobs");
+const profileRoutes = require("./routes/profile");
+const coverLetterRoutes = require("./routes/coverLetters");
+const coachRoutes = require("./routes/coach");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -13,28 +20,21 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-// Handle invalid JSON body (e.g. empty body sent as raw JSON)
-app.use((err, req, res, next) => {
-  if (err.type === "entity.parse.failed") {
-    return res.status(400).json({
-      success: false,
-      status: 400,
-      message: "Invalid JSON in request body",
-    });
-  }
-  next(err);
-});
-
 // ── Routes ───────────────────────────
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/resumes", resumeRoutes);
+app.use("/api/jobs", jobRoutes);
+app.use("/api/linkedin", profileRoutes);
+app.use("/api/cover-letters", coverLetterRoutes);
+app.use("/api/coach", coachRoutes);
 
 // ── Health check ─────────────────────
 app.get("/", (req, res) => {
-  res.json({ message: "API is running" });
+  res.json({ message: "Hirely API is running", version: "2.0" });
 });
 
-// ── 404 handler (route not found) ────
+// ── 404 handler ──────────────────────
 app.use((req, res) => {
   res.status(404).json({
     success: false,
@@ -44,16 +44,9 @@ app.use((req, res) => {
 });
 
 // ── Global error handler ─────────────
-app.use((err, req, res, next) => {
-  console.error("Unhandled error:", err);
-  res.status(500).json({
-    success: false,
-    status: 500,
-    message: "Internal server error",
-  });
-});
+app.use(errorHandler);
 
 // ── Start server ─────────────────────
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`Hirely API running on http://localhost:${PORT}`);
 });
