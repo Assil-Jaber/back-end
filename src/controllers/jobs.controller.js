@@ -1,37 +1,60 @@
 const jobsService = require("../services/jobs.service");
+const adzunaService = require("../services/adzuna.service");
 const resumeService = require("../services/resume.service");
 const { matchResumeToJobs } = require("../services/gemini");
 const { errorResponse, successResponse } = require("../utils/response");
 
-// GET / — list jobs (with optional filters)
-exports.list = (req, res) => {
+// GET / — list jobs from Adzuna (with optional filters)
+exports.list = async (req, res) => {
   try {
-    const { title, location, type, page = 1, limit = 20 } = req.query;
+    const { title, location, type, page = 1, limit = 20, country = "gb" } = req.query;
 
-    const lim = Math.min(parseInt(limit) || 20, 100);
-    const offset = (Math.max(parseInt(page) || 1, 1) - 1) * lim;
+    const lim = Math.min(parseInt(limit) || 20, 50);
+    const pg = Math.max(parseInt(page) || 1, 1);
 
-    const jobs = jobsService.findFiltered(title, location, type, lim, offset);
-    const total = jobsService.countAll();
+    const { jobs, total } = await adzunaService.searchJobs({
+      title,
+      location,
+      type,
+      page: pg,
+      limit: lim,
+      country,
+    });
 
-    return successResponse(res, { jobs, total, page: parseInt(page) || 1, limit: lim });
+    // Cache results locally so save/apply work
+    if (jobs.length > 0) {
+      jobsService.cacheJobs(jobs);
+    }
+
+    return successResponse(res, { jobs, total, page: pg, limit: lim });
   } catch (err) {
     console.error("List jobs error:", err);
     return errorResponse(res, 500, "Failed to fetch jobs.");
   }
 };
 
-// GET /matches — match jobs to user's primary resume
-exports.getMatches = (req, res) => {
+// GET /matches — match Adzuna jobs to user's primary resume
+exports.getMatches = async (req, res) => {
   try {
     const resume = resumeService.findPrimaryOrLatest(req.user.id);
 
     if (!resume) return errorResponse(res, 404, "No resume found. Upload one first.");
 
     const skills = resume.skills ? resume.skills.split(",").map((s) => s.trim()).filter(Boolean) : [];
-    const jobs = jobsService.findAllForMatching();
+
+    // Fetch relevant jobs from Adzuna based on user skills
+    const keyword = skills.slice(0, 3).join(" ");
+    const { jobs } = await adzunaService.searchJobs({
+      title: keyword,
+      page: 1,
+      limit: 50,
+      country: req.query.country || "gb",
+    });
 
     if (jobs.length === 0) return successResponse(res, { matches: [], message: "No jobs available yet." });
+
+    // Cache for save/apply
+    jobsService.cacheJobs(jobs);
 
     const matches = matchResumeToJobs(skills, jobs);
     return successResponse(res, { matches });

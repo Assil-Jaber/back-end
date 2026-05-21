@@ -1,5 +1,22 @@
 const db = require("../db");
 
+// ── Cache Adzuna jobs locally (so save/apply foreign keys work) ──────
+
+exports.cacheJobs = (jobs) => {
+  const upsert = db.prepare(`
+    INSERT OR REPLACE INTO jobs (id, title, company, location, type, description, requirements, salary, posted_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  const insertMany = db.transaction((list) => {
+    for (const j of list) {
+      upsert.run(j.id, j.title, j.company, j.location, j.type, j.description, j.requirements, j.salary, j.posted_at);
+    }
+  });
+  insertMany(jobs);
+};
+
+// ── Query helpers (used for saved/applied which reference cached data) ──
+
 exports.findFiltered = (title, location, type, limit, offset) => {
   let sql = "SELECT * FROM jobs WHERE 1=1";
   const params = [];
