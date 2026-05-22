@@ -8,7 +8,8 @@ exports.createSession = (req, res) => {
     const { topic } = req.body || {};
     const title = topic || "General Career Advice";
     const result = coachService.createSession(req.user.id, title);
-    return successResponse(res, { message: "Session created", session: { id: Number(result.lastInsertRowid), title } }, 201);
+    const sessionId = Number(result.lastInsertRowid);
+    return successResponse(res, { message: "Session created", sessionId, session: { id: sessionId, title } }, 201);
   } catch (err) {
     console.error("Create session error:", err);
     return errorResponse(res, 500, "Failed to create session.");
@@ -37,6 +38,7 @@ exports.sendMessage = async (req, res) => {
     coachService.addMessage(session.id, "assistant", aiResponse);
 
     return successResponse(res, {
+      reply: aiResponse,
       userMessage: { role: "user", content: content.trim() },
       aiMessage: { role: "assistant", content: aiResponse },
     });
@@ -69,5 +71,39 @@ exports.getMessages = (req, res) => {
   } catch (err) {
     console.error("Get messages error:", err);
     return errorResponse(res, 500, "Failed to fetch messages.");
+  }
+};
+
+// POST /message — frontend sends { session_id, message } in body
+exports.sendMessageByBody = async (req, res) => {
+  try {
+    const { session_id, message } = req.body || {};
+    if (!session_id) return errorResponse(res, 400, "session_id is required.");
+    if (!message || !message.trim()) return errorResponse(res, 400, "Message content is required.");
+
+    const session = coachService.findSessionByIdAndUser(session_id, req.user.id);
+    if (!session) return errorResponse(res, 404, "Session not found.");
+
+    // Save user message
+    coachService.addMessage(session.id, "user", message.trim());
+
+    // Get conversation history for context
+    const history = coachService.getMessagesBySession(session.id);
+
+    // Get AI response
+    const aiResponse = await coachReply(history);
+
+    // Save AI message
+    coachService.addMessage(session.id, "assistant", aiResponse);
+
+    return successResponse(res, {
+      reply: aiResponse,
+      userMessage: { role: "user", content: message.trim() },
+      aiMessage: { role: "assistant", content: aiResponse },
+    });
+  } catch (err) {
+    console.error("Coach send error:", err.message || err);
+    if (err.message && err.message.includes("API key")) return errorResponse(res, 503, "AI service not configured.");
+    return errorResponse(res, 500, "Failed to get coach response.");
   }
 };

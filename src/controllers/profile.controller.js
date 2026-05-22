@@ -39,7 +39,34 @@ exports.analyze = async (req, res) => {
     const user = profileService.getUserById(req.user.id);
     if (!user.linkedin_connected) return errorResponse(res, 400, "Connect LinkedIn first (POST /api/linkedin/callback).");
 
-    const analysis = await analyzeLinkedIn(FAKE_PROFILE);
+    // Use request body data (from manual form) or fall back to fake profile
+    const profile = {
+      name: user.name || FAKE_PROFILE.name,
+      headline: req.body.headline || FAKE_PROFILE.headline,
+      email: user.email || FAKE_PROFILE.email,
+      about: req.body.about || "",
+      industry: req.body.industry || "Technology",
+      skills: req.body.skills || [],
+      profile_url: req.body.profile_url || FAKE_PROFILE.url,
+    };
+
+    const analysis = await analyzeLinkedIn(profile);
+
+    // Compute overall_score if not provided
+    if (!analysis.overall_score) {
+      analysis.overall_score = Math.round(
+        (analysis.completeness_score + analysis.headline_score + analysis.keyword_score) / 3
+      );
+    }
+
+    // Ensure suggestions are structured objects for the frontend
+    if (analysis.suggestions && analysis.suggestions.length && typeof analysis.suggestions[0] === "string") {
+      analysis.suggestions = analysis.suggestions.map((s, i) => ({
+        type: i === 0 ? "warning" : "tip",
+        title: s.length > 50 ? s.substring(0, 50) + "..." : s,
+        description: s,
+      }));
+    }
 
     // Store analysis
     profileService.saveAnalysis(req.user.id, analysis.completeness_score, analysis.headline_score, analysis.keyword_score, analysis.suggestions, analysis.improved_headline);

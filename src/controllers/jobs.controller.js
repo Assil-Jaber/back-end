@@ -7,13 +7,15 @@ const { errorResponse, successResponse } = require("../utils/response");
 // GET / — list jobs from Adzuna (with optional filters)
 exports.list = async (req, res) => {
   try {
-    const { title, location, type, page = 1, limit = 20, country = "gb" } = req.query;
+    const { title, search, location, type, page = 1, limit = 20, country = "gb" } = req.query;
+    // Frontend sends ?search= so map it to title for Adzuna
+    const searchTitle = title || search || undefined;
 
     const lim = Math.min(parseInt(limit) || 20, 50);
     const pg = Math.max(parseInt(page) || 1, 1);
 
     const { jobs, total } = await adzunaService.searchJobs({
-      title,
+      title: searchTitle,
       location,
       type,
       page: pg,
@@ -51,13 +53,13 @@ exports.getMatches = async (req, res) => {
       country: req.query.country || "gb",
     });
 
-    if (jobs.length === 0) return successResponse(res, { matches: [], message: "No jobs available yet." });
+    if (jobs.length === 0) return successResponse(res, { jobs: [], message: "No jobs available yet." });
 
     // Cache for save/apply
     jobsService.cacheJobs(jobs);
 
     const matches = matchResumeToJobs(skills, jobs);
-    return successResponse(res, { matches });
+    return successResponse(res, { jobs: matches });
   } catch (err) {
     console.error("Matches error:", err);
     return errorResponse(res, 500, "Failed to fetch matches.");
@@ -68,7 +70,7 @@ exports.getMatches = async (req, res) => {
 exports.getSaved = (req, res) => {
   try {
     const saved = jobsService.findSavedByUser(req.user.id);
-    return successResponse(res, { saved });
+    return successResponse(res, { jobs: saved });
   } catch (err) {
     console.error("Saved jobs error:", err);
     return errorResponse(res, 500, "Failed to fetch saved jobs.");

@@ -119,14 +119,22 @@ async function analyzeLinkedIn(profile) {
   "completeness_score": <number 0-100>,
   "headline_score": <number 0-100>,
   "keyword_score": <number 0-100>,
-  "suggestions": ["suggestion1", "suggestion2", "suggestion3"],
+  "overall_score": <number 0-100>,
+  "suggestions": [
+    {"type": "warning", "title": "Short title", "description": "Detailed suggestion"},
+    {"type": "tip", "title": "Short title", "description": "Detailed suggestion"},
+    {"type": "success", "title": "Short title", "description": "What they did well"}
+  ],
   "improved_headline": "a better headline for this person"
 }
 
 Profile:
-Name: ${profile.name}
-Headline: ${profile.headline}
-Email: ${profile.email}`;
+Name: ${profile.name || "Unknown"}
+Headline: ${profile.headline || "No headline"}
+About: ${profile.about || "No about section"}
+Industry: ${profile.industry || "Not specified"}
+Skills: ${Array.isArray(profile.skills) ? profile.skills.join(", ") : profile.skills || "None listed"}
+Email: ${profile.email || ""}`;
 
   return geminiJSON(prompt);
 }

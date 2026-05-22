@@ -5,6 +5,7 @@ const c = require("../controllers/jobs.controller");
 const router = express.Router();
 
 // Public
+router.get("/seed", (req, res) => res.json({ success: true, message: "No seed needed" }));
 router.get("/", c.list);
 router.get("/matches", auth, c.getMatches);
 router.get("/saved", auth, c.getSaved);

@@ -31,7 +31,7 @@ exports.create = async (req, res) => {
     if (Array.isArray(experiences)) resumeService.insertExperiences(resumeId, experiences);
     if (Array.isArray(education)) resumeService.insertEducation(resumeId, education);
 
-    return successResponse(res, { message: "Resume created", resume: { id: Number(resumeId), full_name, email, phone, summary, skills } }, 201);
+    return successResponse(res, { message: "Resume created", resumeId: Number(resumeId), resume: { id: Number(resumeId), full_name, email, phone, summary, skills } }, 201);
   } catch (err) {
     console.error("Create resume error:", err);
     return errorResponse(res, 500, "Failed to create resume.");
@@ -167,7 +167,22 @@ exports.optimize = async (req, res) => {
       }
     }
 
-    return successResponse(res, { message: "Resume optimized", optimization: result });
+    // Restructure for frontend: expects scores object, improvements array, experience_bullets
+    const ats = result.ats_score || 0;
+    const keyword = result.keyword_score || 0;
+    const content = result.content_score || 0;
+    const overall = Math.round((ats + keyword + content) / 3);
+    const optimization = {
+      scores: { ats, keyword, content, overall },
+      optimized_summary: result.optimized_summary || "",
+      suggested_skills: result.suggested_skills || [],
+      improvements: result.tips || [],
+      experience_bullets: Array.isArray(result.improved_experiences)
+        ? result.improved_experiences.map(e => ({ original: e.original, bullets: [e.improved] }))
+        : [],
+    };
+
+    return successResponse(res, { message: "Resume optimized", optimization });
   } catch (err) {
     console.error("Optimize error:", err.message || err);
     if (err.message && err.message.includes("API key")) return errorResponse(res, 503, "AI service not configured. Set a valid GEMINI_API_KEY.");
