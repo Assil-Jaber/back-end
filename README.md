@@ -17,6 +17,8 @@ Node.js + Express REST API for the Hirely AI Career Platform.
 - Node.js >= 18
 - npm
 
+> **SQLite:** No installation needed! SQLite runs as an embedded database via the `better-sqlite3` npm package. The database file (`hirely.db`) is created automatically in the project root when you first start the server. No database server, no setup, no configuration — it just works out of the box.
+
 ## Setup
 
 1. **Clone the repo:**
